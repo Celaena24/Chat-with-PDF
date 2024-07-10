@@ -1,0 +1,13 @@
+cassio
+datasets
+langchain
+openai
+tiktoken
+langchain_community
+langchain_core
+langchain_openai
+PyPDF2
+python-dotenv
+cassandra-driver
+streamlit
+huggingface_hub
