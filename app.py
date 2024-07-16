@@ -36,16 +36,16 @@ def get_text_chunks(raw_text):
     text_chunks = text_splitter.split_text(raw_text)
     return text_chunks
 
-def get_vector_store(text_chunks):
+
+def get_vector_store():
     cassio.init(token=token, database_id=database_id)
     embedding = OpenAIEmbeddings()
     astra_vector_store = Cassandra(
         embedding=embedding,
         table_name="qa_mini_demo",
     )
-    astra_vector_store.add_texts(text_chunks)
-    astra_vector_index = VectorStoreIndexWrapper(vectorstore=astra_vector_store)
-    return astra_vector_store, astra_vector_index
+    astra_vector_store.delete_collection()
+    return astra_vector_store
 
 def get_conversation_chain(vstore):
     retriever = vstore.as_retriever(search_kwargs={"k": 3})
@@ -86,31 +86,48 @@ def main():
         """,
         unsafe_allow_html=True,
     )
-
-    if 'astra_vector_index' not in st.session_state:
-        st.session_state.astra_vector_index = None
+    
+    if 'vector_store' not in st.session_state:
+        st.session_state.vector_store = None
+    
     if 'chain' not in st.session_state:
         st.session_state.chain = None
+        
+    if 'previous_pdf_names' not in st.session_state:
+        st.session_state.previous_pdf_names = set()
+        
 
     with st.sidebar:
         st.title("Menu")
         pdf_docs = st.file_uploader("Upload your PDF Files and Click on the Submit & Process Button", accept_multiple_files=True, type=["pdf"])
+        
+        current_pdf_names = {pdf.name for pdf in pdf_docs} if pdf_docs else set()
+        
         if st.button("Submit & Process") and pdf_docs:
             with st.spinner("Processing..."):
+                st.session_state.vector_store = get_vector_store()
+                st.session_state.previous_pdf_names = current_pdf_names
+                
                 raw_text = extract_pdf_text(pdf_docs)
                 text_chunks = get_text_chunks(raw_text)
-                vstore, st.session_state.astra_vector_index = get_vector_store(text_chunks)
-                st.session_state.chain = get_conversation_chain(vstore)
+                
+                st.session_state.vector_store.add_texts(text_chunks)
+                st.session_state.chain = get_conversation_chain(st.session_state.vector_store)
+    
                 st.success("Done")
 
+    
     user_question = st.text_input("Ask a question from the PDF file")
 
     if user_question:
-        if st.session_state.astra_vector_index is None:
+        if not pdf_docs:
             st.error("Please upload and process a PDF file first.")
         else:
-            answer = st.session_state.chain.invoke(user_question).strip()
-            st.write("Answer:", answer)
+            if st.session_state.previous_pdf_names != current_pdf_names:
+                st.error("Submit to process the text")
+            else:
+                answer = st.session_state.chain.invoke(user_question).strip()
+                st.write("Answer:", answer)
 
 if __name__ == "__main__":
     main()
