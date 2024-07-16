@@ -103,6 +103,10 @@ def main():
         
         current_pdf_names = {pdf.name for pdf in pdf_docs} if pdf_docs else set()
         
+        if st.session_state.previous_pdf_names != current_pdf_names:
+            st.session_state.vector_store = get_vector_store()
+        
+        
         if st.button("Submit & Process") and pdf_docs:
             with st.spinner("Processing..."):
                 st.session_state.vector_store = get_vector_store()
