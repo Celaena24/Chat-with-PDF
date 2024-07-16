@@ -121,7 +121,7 @@ def main():
                 st.success("Done")
 
     
-    user_question = st.text_input("Ask a question from the PDF file")
+    user_question = st.text_input("Ask a question from the PDF file(s)")
 
     if user_question:
         if not pdf_docs:
